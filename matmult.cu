@@ -3,8 +3,8 @@
 #include <cstdio>
 #include <sys/time.h>
 
-#define M 8 // 
-#define K 8 // 
+#define M 8 //
+#define K 8 
 
 
 /*
@@ -77,8 +77,8 @@ int main(int argc, char **argv) {
 	gettimeofday(&tic, NULL); //Start timer
 
 	// Invoke gpu multiplication
-	dim3 grid(N/M, N/K); // Amount of 2 dimensional blocks per axis
-	dim3 block(M,K); // Thread size per axis
+	dim3 grid(N/M/K, N/M/K); // Amount of 2 dimensional blocks per axis
+	dim3 block(K,K); // Thread size per axis
 	matmul<<<grid,block>>>(d_A, d_B, d_C, N);  
 	cudaDeviceSynchronize();
 
