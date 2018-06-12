@@ -3,21 +3,22 @@
 #include <cstdio>
 #include <sys/time.h>
 
-#define M 8
-#define K 8
+#define M 1024
 
 __global__ void matmul(float *A, float *B, float *C, int N) {
-  int ii = threadIdx.x + blockDim.x * blockIdx.x;
-  int jj = threadIdx.y + blockDim.y * blockIdx.y;
+  int i = blockIdx.y;
+  int j = threadIdx.x + blockDim.x * blockIdx.x;
   float sum = 0.0f;
-  for (int i=ii; i<ii+M; i++) {
-    for (int j=jj; j<jj+M; j++) {
-      for (int k=0; k<N; k++) {
-        sum += A[N*i+k] * B[N*k+j];
-      }
-      C[N*i+j] = sum;
+  __shared__ float s_A[M];
+  for (int ks=0; ks<N; ks+=M) {
+    __syncthreads();
+    s_A[threadIdx.x] = A[N*i+ks+threadIdx.x];
+    __syncthreads();
+    for (int k=ks; k<ks+M; k++) {
+      sum += s_A[k-ks] * B[N*k+j];
     }
   }
+  C[N*i+j] = sum;
 }
 
 int main(int argc, char **argv) {
@@ -41,11 +42,10 @@ int main(int argc, char **argv) {
   cudaMemcpy(d_A, h_A, size, cudaMemcpyHostToDevice);
   cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
   cudaMemcpy(d_C, h_C, size, cudaMemcpyHostToDevice);
-  dim3 grid(N/M/K, N/M/K);
-  dim3 block(K,K);
+  dim3 grid(N/M, N);
   struct timeval tic, toc;
   gettimeofday(&tic, NULL);
-  matmul<<<grid,block>>>(d_A, d_B, d_C, N);
+  matmul<<<grid,M>>>(d_A, d_B, d_C, N);
   cudaDeviceSynchronize();
   gettimeofday(&toc, NULL);
   double time = toc.tv_sec-tic.tv_sec+(toc.tv_usec-tic.tv_usec)*1e-6;
